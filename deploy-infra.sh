@@ -8,6 +8,13 @@ AWS_ACCOUNT_ID=`aws sts get-caller-identity --profile awsbootstrap2 \
   --query "Account" --output text`
 CODEPIPELINE_BUCKET="$STACK_NAME-$REGION-codepipeline-$AWS_ACCOUNT_ID"
 
+# Generate a personal access token with repo and admin:repo_hook
+#    permissions from https://github.com/settings/tokens
+GH_ACCESS_TOKEN=$(cat ~/.github/aws-bootstrap-access-token)
+GH_OWNER=$(cat ~/.github/aws-bootstrap-owner)
+GH_REPO=$(cat ~/.github/aws-bootstrap-repo)
+GH_BRANCH=master
+
 echo -e "\n\n=========== Deploying setup.yml ==========="
 aws cloudformation deploy \
   --region $REGION \
@@ -29,4 +36,16 @@ aws cloudformation deploy \
   --no-fail-on-empty-changeset \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
-    EC2InstanceType=$EC2_INSTANCE_TYPE
+    EC2InstanceType=$EC2_INSTANCE_TYPE \
+    GitHubOwner=$GH_OWNER \
+    GitHubRepo=$GH_REPO \
+    GitHubBranch=$GH_BRANCH \
+    GitHubPersonalAccessToken=$GH_ACCESS_TOKEN \
+    CodePipelineBucket=$CODEPIPELINE_BUCKET
+
+    # If the deploy succeeded, show the DNS name of the created instance
+if [ $? -eq 0 ]; then
+  aws cloudformation list-exports \
+    --profile awsbootstrap2 \
+    --query "Exports[?starts_with(Name,'InstanceEndpoint')].Value"
+fi
